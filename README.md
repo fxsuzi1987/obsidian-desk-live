@@ -12,9 +12,11 @@ portfolio object.
 | Piece | Status |
 |---|---|
 | Gold spot price | **Real** — [gold-api.com](https://gold-api.com), no key needed |
-| Macro / Technical / News agents | **Real** Claude/GPT calls, reasoning honestly about their own data limits (no historical bars or news feed are wired in yet — they say so rather than making things up) |
+| Gold price history | **Real** (optional) — [metalpriceapi.com](https://metalpriceapi.com) free tier, feeds the Technical Agent real trend/momentum stats instead of a blind guess |
+| News / event-risk feed | **Real** (optional) — [finnhub.io](https://finnhub.io) free tier, keyword-filtered for gold/macro relevance, feeds the News Agent real headlines instead of a blind guess |
+| Macro / Technical / News agents | **Real** Claude/GPT calls, reasoning honestly about their own data limits — the Technical and News agents use real data when the optional keys below are set, and say so plainly when they aren't rather than making things up |
 | Bull / Bear / Skeptic debate | **Real** Claude/GPT calls |
-| Judge | **Real** Claude call, defaults to NO_TRADE given the current data limits |
+| Judge | **Real** Claude call, defaults to NO_TRADE unless the case for action is unusually strong |
 | Risk Engine | **Real deterministic code** — hard-coded limits, not agent-decided |
 | Execution | **Simulated fill** into a paper portfolio — no broker |
 | Position Monitor | **Real deterministic code**, watching the paper position against its stop/target on each cycle |
@@ -46,12 +48,12 @@ which broke a naive first-`{`-to-last-`}` parse. `lib/llm.ts`'s
 tries them last-to-first, which is exactly the kind of thing you only find
 by actually running it against a real model instead of guessing.
 
-**On your API key:** treat `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` like
-passwords — only ever put them in `.env.local` (already gitignored) or your
-host's environment variable settings, never in a file you commit. If you
-pasted a key into a chat at any point while setting this up, it's worth
-rotating it (create a new one, delete the old one) in the provider's
-console once you're done testing, just as a habit.
+**On your API keys:** treat every key below like a password — only ever put
+them in `.env.local` (already gitignored) or your host's environment
+variable settings, never in a file you commit. If you pasted a key into a
+chat at any point while setting this up, it's worth rotating it (create a
+new one, delete the old one) in the provider's console once you're done
+testing, just as a habit.
 
 ## Getting it actually live (continuous, no laptop required)
 
@@ -74,24 +76,46 @@ Then in the Vercel project → Settings → Environment Variables, add:
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` (optional), `UPSTASH_REDIS_REST_URL`,
 `UPSTASH_REDIS_REST_TOKEN` — paste the values in, redeploy.
 
+**Two more optional keys make the research agents materially smarter:**
+
+- `METALPRICE_API_KEY` — free at metalpriceapi.com (no card, 100
+  requests/month, which is plenty since the app caches this ~once/day).
+  Without it, the Technical Agent has no price history and honestly says
+  so instead of guessing at trend.
+- `FINNHUB_API_KEY` — free at finnhub.io (no card, personal use, ~60
+  requests/minute). Without it, the News Agent has no headlines and
+  honestly says so instead of inventing events.
+
+Both are genuinely optional — the desk runs fine without them, just with
+two of the nine agents intentionally staying low-confidence.
+
 **Keeping it running continuously:** Vercel's free plan only allows a cron
 job once a day, so `vercel.json` in here is set to once daily as a safety
 net. The real heartbeat is `.github/workflows/run-cycle.yml` — a GitHub
 Actions schedule that pings your deployed `/api/cycle` every 10 minutes,
-for free. After you deploy, add one repo secret: Settings → Secrets and
-variables → Actions → New repository secret → name it `DEPLOY_URL`, value
-is your Vercel URL (e.g. `https://your-app.vercel.app`, no trailing
-slash).
+for free. The deploy URL is baked into that workflow file as a default, so
+it works out of the box; if you ever redeploy to a different URL, either
+edit `DEFAULT_DEPLOY_URL` in that file or add a repo secret named
+`DEPLOY_URL` (Settings → Secrets and variables → Actions), which takes
+priority when set.
 
 I can drive all of the clicking above myself, on your screen, with your
 say-so at each step — just say the word and we'll do it together next.
 
 ## Honest limitations of this pass
 
-- No historical price series yet, so the Technical Agent is intentionally
-  low-confidence — it says so rather than inventing chart patterns.
-- No live news feed, so the News Agent is intentionally low-confidence for
-  the same reason.
+- Price history (when `METALPRICE_API_KEY` is set) is **daily closes**, not
+  intraday bars or a real chart — the Technical Agent reasons about trend
+  regime and momentum from that summary, not candlestick patterns it can't
+  actually see.
+- The news feed (when `FINNHUB_API_KEY` is set) is Finnhub's general
+  market-news category, keyword-filtered for gold/macro relevance in our
+  own code — not a dedicated gold news wire, so some headlines may be only
+  loosely related. The News Agent is told to say so rather than force a
+  connection that isn't there.
+- Without either key, the corresponding agent falls back to the original
+  honest "I don't have that data" behavior — nothing breaks, it just stays
+  low-confidence for that piece.
 - The event-blackout calendar (`lib/config.ts` → `EVENT_BLACKOUTS`) is an
   empty placeholder — populate it with real CPI/FOMC/NFP dates if you want
   the Risk Engine to actually enforce blackout windows.
