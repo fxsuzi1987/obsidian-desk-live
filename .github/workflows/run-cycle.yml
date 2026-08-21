@@ -7,9 +7,14 @@ name: Run agent cycle
 # load — that's fine for a research/paper desk, not something to rely on
 # for anything time-critical.
 #
-# Setup: after deploying to Vercel, add a repository secret named
-# DEPLOY_URL set to your deployed URL (e.g. https://your-app.vercel.app),
-# in this repo's Settings -> Secrets and variables -> Actions.
+# The deploy URL below is a public URL (not a secret) baked in as a default
+# so this works out of the box. If you ever redeploy to a different URL,
+# either edit DEFAULT_DEPLOY_URL below or add a repository secret named
+# DEPLOY_URL (Settings -> Secrets and variables -> Actions) — the secret,
+# if set, takes priority.
+
+env:
+  DEFAULT_DEPLOY_URL: "https://obsidian-desk-live-suzi3.vercel.app"
 
 on:
   schedule:
@@ -22,8 +27,8 @@ jobs:
     steps:
       - name: Call /api/cycle
         run: |
-          if [ -z "${{ secrets.DEPLOY_URL }}" ]; then
-            echo "DEPLOY_URL secret is not set yet — add it in repo Settings > Secrets and variables > Actions, then re-run."
-            exit 0
+          URL="${{ secrets.DEPLOY_URL }}"
+          if [ -z "$URL" ]; then
+            URL="$DEFAULT_DEPLOY_URL"
           fi
-          curl -sS -X POST "${{ secrets.DEPLOY_URL }}/api/cycle" -o - -w "\nHTTP %{http_code}\n"
+          curl -sS -X POST "$URL/api/cycle" -o - -w "\nHTTP %{http_code}\n"
