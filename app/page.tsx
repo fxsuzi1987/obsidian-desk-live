@@ -8,7 +8,13 @@ interface StateResponse {
   portfolio: PaperPortfolio;
   journal: JournalEntry[];
   logs: LogEntry[];
-  env: { hasAnthropicKey: boolean; hasOpenAIKey: boolean; persistentStore: boolean };
+  env: {
+    hasAnthropicKey: boolean;
+    hasOpenAIKey: boolean;
+    hasMetalPriceKey: boolean;
+    hasFinnhubKey: boolean;
+    persistentStore: boolean;
+  };
 }
 
 const STATUS_TONE: Record<string, string> = {
@@ -80,6 +86,8 @@ export default function Page() {
         <div className="status-note">
           {data && !data.env.hasAnthropicKey && <Pill label="No Anthropic key" tone="critical" />}
           {data && !data.env.hasOpenAIKey && <Pill label="No OpenAI key (News/Bear fall back to Claude)" tone="warn" />}
+          {data && !data.env.hasMetalPriceKey && <Pill label="No price history feed (Technical Agent flying blind)" tone="warn" />}
+          {data && !data.env.hasFinnhubKey && <Pill label="No news feed (News Agent flying blind)" tone="warn" />}
           {data && !data.env.persistentStore && <Pill label="No persistent store — using in-memory state" tone="warn" />}
           <button className="btn btn-accent" onClick={runNow} disabled={running}>
             {running ? "Running cycle…" : "Run cycle now"}
