@@ -1,0 +1,29 @@
+name: Run agent cycle
+
+# Vercel's free Hobby plan only allows a cron job once per day, so this
+# workflow is the real heartbeat: it pings the deployed app every 10 minutes
+# so the desk actually runs through market hours instead of once a day.
+# GitHub Actions schedules are best-effort and can slip a few minutes under
+# load — that's fine for a research/paper desk, not something to rely on
+# for anything time-critical.
+#
+# Setup: after deploying to Vercel, add a repository secret named
+# DEPLOY_URL set to your deployed URL (e.g. https://your-app.vercel.app),
+# in this repo's Settings -> Secrets and variables -> Actions.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cycle
+        run: |
+          if [ -z "${{ secrets.DEPLOY_URL }}" ]; then
+            echo "DEPLOY_URL secret is not set yet — add it in repo Settings > Secrets and variables > Actions, then re-run."
+            exit 0
+          fi
+          curl -sS -X POST "${{ secrets.DEPLOY_URL }}/api/cycle" -o - -w "\nHTTP %{http_code}\n"
